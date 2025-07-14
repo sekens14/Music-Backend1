@@ -18,6 +18,48 @@ def home():
 
 @app.route('/download', methods=['POST'])
 def download_video():
+    @app.route('/download', methods=['POST'])
+def download_video():
+    try:
+        # Ensure JSON was received
+        if not request.is_json:
+            return {"error": "Request must be JSON"}, 400
+            
+        data = request.get_json()
+        
+        # Validate required fields
+        if 'url' not in data:
+            return {"error": "Missing 'url' parameter"}, 400
+            
+        url = data['url']
+        format_type = data.get('format', 'mp3')
+
+        # Initialize YouTube with error handling
+        try:
+            yt = YouTube(url)
+            yt.bypass_age_gate()  # Bypass age restrictions
+        except Exception as e:
+            return {"error": f"YouTube initialization failed: {str(e)}"}, 400
+
+        # Stream selection with validation
+        stream = yt.streams.filter(only_audio=True).first() if format_type == 'mp3' else yt.streams.get_highest_resolution()
+        if not stream:
+            return {"error": "No suitable stream found"}, 400
+
+        # Download with error handling
+        try:
+            filename = f"{uuid.uuid4()}.{format_type}"
+            stream.download(output_path=DOWNLOAD_FOLDER, filename=filename)
+            return {
+                "success": True,
+                "filename": filename,
+                "title": yt.title
+            }
+        except Exception as e:
+            return {"error": f"Download failed: {str(e)}"}, 500
+
+    except Exception as e:
+        return {"error": f"Unexpected error: {str(e)}"}, 500
     data = request.get_json()  # Changed from request.json for better compatibility
     if not data:
         return jsonify({'success': False, 'error': 'No JSON data received'}), 400
@@ -51,13 +93,10 @@ def download_video():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/downloads/<filename>', methods=['GET'])
-def serve_file(filename):
-    try:
-        return send_from_directory(DOWNLOAD_FOLDER, filename, as_attachment=True)
-    except FileNotFoundError:
-        return jsonify({'success': False, 'error': 'File not found'}), 404
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port)
+@app.route('/debug')
+def debug():
+    return {
+        "status": "online",
+        "pytube_version": YouTube.__version__,
+        "downloads_folder_exists": os.path.exists(DOWNLOAD_FOLDER)
+    }
