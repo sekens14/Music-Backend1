@@ -14,7 +14,7 @@ if not os.path.exists(DOWNLOAD_FOLDER):
 # Add root route
 @app.route('/')
 def home():
-    return "YouTube Downloader Backend is Running"
+    return "YouTube Downloader Backend is Running",200
 
 @app.route('/download', methods=['POST'])
 def download_video():
