@@ -17,9 +17,42 @@ def home():
     return "YouTube Downloader Backend is Running",200
 
 @app.route('/download', methods=['POST'])
-def download_video():
-    @app.route('/download', methods=['POST'])
-def download_video():
+def download_video():  # <- This line was misaligned
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No JSON data received"}), 400
+        
+    url = data.get('url')
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
+
+    try:
+        yt = YouTube(url)
+        yt.bypass_age_gate()  # Handle age-restricted videos
+        
+        stream = yt.streams.filter(only_audio=True).first()
+        if not stream:
+            return jsonify({"error": "No audio stream found"}), 400
+            
+        filename = f"{uuid.uuid4()}.mp3"
+        stream.download(output_path=DOWNLOAD_FOLDER, filename=filename)
+        
+        return jsonify({
+            "success": True,
+            "filename": filename,
+            "title": yt.title,
+            "download_url": f"/downloads/{filename}"
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/downloads/<filename>')
+def serve_file(filename):
+    return send_from_directory(DOWNLOAD_FOLDER, filename)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 10000))
+    app.run(host='0.0.0.0', port=port)
     try:
         # Ensure JSON was received
         if not request.is_json:
